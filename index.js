@@ -8,7 +8,7 @@ const path = require('path');
 const args = process.argv.slice(2);
 
 const dir = args[0] ? path.resolve(args[0]) : path.resolve('.')
-const ignorePatterns = ['**/node_modules/**', '**/build/**', '**/dist/**', '**/coverage/**', '**/public/**'];
+const ignorePatterns = ['**/node_modules/**', '**/build/**', '**/dist/**', '**/coverage/**'];
 
 const chokidarOptions = {
     ignored: ignorePatterns,
@@ -18,7 +18,6 @@ const chokidarOptions = {
 
 const jscpdOptions = {
     path: [dir],
-    pattern: '**/src/**/*.{js,jsx,ts,tsx}',
     gitignore: true,
     silent: true,
     ignore: ignorePatterns,
