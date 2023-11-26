@@ -1,3 +1,5 @@
+https://github.com/hand-dot/stopcpd/assets/24843808/f5ab302a-a947-4efb-85e5-2e4e819ca4ee
+
 What?
 
 - Created to stop increasing copy-paste code
