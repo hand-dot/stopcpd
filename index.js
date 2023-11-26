@@ -36,6 +36,10 @@ const setInitialClones = async () => {
     console.log('---------- Initial Clones ----------');
     console.log('Current clones: ', clones.length);
     console.log('------------------------------------');
+    notifier.notify({
+        title: '[stopcpd]: 🚀 Initial clones have been detected',
+        message: `Current clones: ${clones.length}`
+    });
     initialCloneLength = clones.length;
 };
 
@@ -56,19 +60,15 @@ const handleFileChange = async (path) => {
     console.log('------------------------------------');
 
     addedClones.forEach(clone => {
-        notifyNewClone(clone, path);
+        const { duplicationA, duplicationB } = clone;
+        const title = '[stopcpd]: ⛔ Duplicated code has been newly detected';
+        const message = `${formatClonePosition(duplicationA)}\n    ${formatClonePosition(duplicationB)}`;
+        notifier.notify({ title, message });
+        setupNotifierListener(duplicationA, duplicationB, path);
     });
 
     result = newClones;
 
-};
-
-const notifyNewClone = (clone, path) => {
-    const { duplicationA, duplicationB } = clone;
-    const title = '[stopcpd]: ⛔ Duplicated code has been newly detected';
-    const message = `${formatClonePosition(duplicationA)}\n    ${formatClonePosition(duplicationB)}`;
-    notifier.notify({ title, message });
-    setupNotifierListener(duplicationA, duplicationB, path);
 };
 
 const formatClonePosition = ({ sourceId, start, end }) => `${sourceId}:${start.line}~${end.line}`;
