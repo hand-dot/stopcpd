@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 const chokidar = require('chokidar');
 const { detectClones } = require('jscpd');
 const notifier = require('node-notifier');
@@ -21,74 +20,61 @@ const jscpdOptions = {
     path: [dir],
     pattern: '**/src/**/*.{js,jsx,ts,tsx}',
     gitignore: true,
+    silent: true,
     ignore: ignorePatterns,
+    minLines: 2,
     minTokens: 25,
-    minLines: 3,
 };
 
-const getCloneId = (clone) => {
-    const { sourceId, start } = clone.duplicationA;
-    return `${sourceId}:${start.line}`;
-};
-
-const notify = (title, message) => {
-    notifier.notify({ title, message });
-};
-
-let lastClones = [];
-
-const initialize = async () => {
-    lastClones = await detectClones(jscpdOptions);
-    const message = lastClones.length ? `You already have ${lastClones.length} duplicated code` : 'You have no duplicated code';
-    notify('[stopcpd]: ℹ️ stopcpd has been initialized', message);
+/**
+ * @type {IClone[]}
+ */
+let clones = [];
+let initialCloneLength = 0;
+const setInitialClones = async () => {
+    clones = await detectClones({ ...jscpdOptions, silent: false });
+    console.log('---------- Initial Clones ----------');
+    console.log('Current clones: ', clones.length);
+    console.log('------------------------------------');
+    initialCloneLength = clones.length;
 };
 
 const handleFileChange = async (path) => {
-    console.log(`[stopcpd]: File changed: ${path}`);
+    console.log(`File ${path} has been changed`);
     const newClones = await detectClones(jscpdOptions);
 
-    if (newClones.length === lastClones.length) return;
+    const addedClones = newClones
+        .filter(clone => clone.duplicationA.sourceId === path || clone.duplicationB.sourceId === path)
+        .filter(clone => !clones.find(c => c.duplicationA.fragment === clone.duplicationA.fragment));
 
-    if (newClones.length < lastClones.length) {
-        handleDeletedClones(newClones);
-    } else {
-        handleNewClones(newClones, path);
-    }
-};
+    console.log('---------- Added Clones ----------');
+    console.log(addedClones);
+    console.log('length: ', addedClones.length);
+    console.log('------------------------------------');
+    console.log('---------- Current Clones ----------');
+    console.log('Current clones: ', `${newClones.length} (From initial clones: ${newClones.length - initialCloneLength >= 0 ? '+' : ''} ${newClones.length - initialCloneLength})`);
+    console.log('------------------------------------');
 
-const handleDeletedClones = (newClones) => {
-    const deletedClone = lastClones.find(clone => !newClones.includes(clone));
-    if (deletedClone) {
-        const { duplicationA, duplicationB } = deletedClone;
-        notifyDeletedClone(duplicationA, duplicationB);
-        lastClones = newClones;
-    }
-};
-
-const notifyDeletedClone = (a, b) => {
-    const message = `${formatClonePosition(a)}\n${formatClonePosition(b)}`;
-    notify('[stopcpd]: ✅ Duplicated code has been deleted', message);
-};
-
-const handleNewClones = (newClones, path) => {
-    const clonesToNotify = newClones.filter(clone => !lastClones.some(lastClone => getCloneId(lastClone) === getCloneId(clone)));
-    clonesToNotify.forEach(clone => {
+    addedClones.forEach(clone => {
         notifyNewClone(clone, path);
-        lastClones = newClones;
     });
+
+    result = newClones;
+
 };
 
 const notifyNewClone = (clone, path) => {
     const { duplicationA, duplicationB } = clone;
+    const title = '[stopcpd]: ⛔ Duplicated code has been newly detected';
     const message = `${formatClonePosition(duplicationA)}\n    ${formatClonePosition(duplicationB)}`;
-    notify('[stopcpd]: ⛔ Duplicated code has been newly detected', message);
+    notifier.notify({ title, message });
     setupNotifierListener(duplicationA, duplicationB, path);
 };
 
 const formatClonePosition = ({ sourceId, start, end }) => `${sourceId}:${start.line}~${end.line}`;
 
 const setupNotifierListener = (a, b, path) => {
-    notifier.addListener('click', () => {
+    notifier.on('click', () => {
         openCloneInEditor(a, b, path);
         notifier.removeAllListeners('click');
     });
@@ -105,5 +91,8 @@ const openCloneInEditor = (a, b, path) => {
 };
 
 
-initialize();
-chokidar.watch(dir, chokidarOptions).on('change', handleFileChange);
+(async () => {
+    await setInitialClones();
+    chokidar.watch(dir, chokidarOptions).on('change', handleFileChange);
+    console.log(`Watching ${dir} for changes...`);
+})()
